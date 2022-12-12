@@ -135,6 +135,7 @@ _toolchain:
 	./ct-ng xtensa-lx106-elf
 	sed -r -i.org s%CT_PREFIX_DIR=.*%CT_PREFIX_DIR="$(TOOLCHAIN)"% .config
 	sed -r -i s%CT_INSTALL_DIR_RO=y%"#"CT_INSTALL_DIR_RO=y% .config
+	sed -r -i s%CT_EXPAT_VERSION=\"2.1.0\"%CT_EXPAT_VERSION=\"2.4.1\"% .config
 	cat ../crosstool-config-overrides >> .config
 	./ct-ng build
 
