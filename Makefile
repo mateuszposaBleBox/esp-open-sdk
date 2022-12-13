@@ -1,4 +1,3 @@
-
 # Whether to merge SDK into Xtensa toolchain, producing standalone
 # ESP8266 toolchain. Use 'n' if you want generic Xtensa toolchain
 # which can be used with multiple SDK versions.
@@ -10,7 +9,7 @@ TOOLCHAIN = $(TOP)/xtensa-lx106-elf
 
 # Vendor SDK version to install, see VENDOR_SDK_ZIP_* vars below
 # for supported versions.
-VENDOR_SDK = 2.1.0-18-g61248df
+VENDOR_SDK = 2.0.0
 
 .PHONY: crosstool-NG toolchain libhal libcirom sdk
 
@@ -23,7 +22,19 @@ UNZIP = unzip -q -o
 VENDOR_SDK_ZIP = $(VENDOR_SDK_ZIP_$(VENDOR_SDK))
 VENDOR_SDK_DIR = $(VENDOR_SDK_DIR_$(VENDOR_SDK))
 
-VENDOR_SDK_DIR_2.1.0-18-g61248df = ESP8266_NONOS_SDK-2.1.0-18-g61248df
+# Watch out for ESP-numbers: 3.0.5 > 3.0.4-12-g692e021 > 3.0.4 > 3.0.3 > 3.0.2 > 3.0.1 > 3.1.0-v3 and 3.0.1 > 3.1.0-dev
+VENDOR_SDK_DIR_3.0.5 = ESP8266_NONOS_SDK-3.0.5
+VENDOR_SDK_DIR_3.0.4-12-g692e021 = ESP8266_NONOS_SDK-3.0.4-12-g692e021
+VENDOR_SDK_DIR_3.0.4 = ESP8266_NONOS_SDK-3.0.4
+VENDOR_SDK_DIR_3.0.3 = ESP8266_NONOS_SDK-3.0.3
+VENDOR_SDK_DIR_3.0.2 = ESP8266_NONOS_SDK-3.0.2
+VENDOR_SDK_DIR_3.0.1 = ESP8266_NONOS_SDK-3.0.1
+VENDOR_SDK_DIR_3.1.0-v3.0-37-gce29749 = ESP8266_NONOS_SDK-3.1.0-v3.0-37-gce29749
+VENDOR_SDK_DIR_3.1.0-dev-v3.0-21-g8c3f4c8 = ESP8266_NONOS_SDK-3.1.0-dev-v3.0-21-g8c3f4c8
+VENDOR_SDK_DIR_3.0.0 = ESP8266_NONOS_SDK-3.0.0
+VENDOR_SDK_DIR_2.2.1 = ESP8266_NONOS_SDK-2.2.1
+VENDOR_SDK_DIR_2.2.0 = ESP8266_NONOS_SDK-2.2.0
+VENDOR_SDK_DIR_2.1.0-1-geff6873 = ESP8266_NONOS_SDK-2.1.0-1-geff6873
 VENDOR_SDK_ZIP_2.1.0 = ESP8266_NONOS_SDK-2.1.0.zip
 VENDOR_SDK_DIR_2.1.0 = ESP8266_NONOS_SDK-2.1.0
 VENDOR_SDK_ZIP_2.0.0 = ESP8266_NONOS_SDK_V2.0.0_16_08_10.zip
@@ -74,7 +85,7 @@ VENDOR_SDK_DIR_0.9.2 = esp_iot_sdk_v0.9.2
 
 
 
-all: esptool libcirom standalone sdk sdk_patch $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/libhal.a $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc lwip
+all: esptool libcirom standalone sdk sdk_patch $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/libhal.a $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc 
 	@echo
 	@echo "Xtensa toolchain is built, to use it:"
 	@echo
@@ -97,14 +108,10 @@ ifeq ($(STANDALONE),y)
 	@cp -Rf sdk/include/* $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/include/
 	@echo "Installing vendor SDK libs into toolchain sysroot"
 	@cp -Rf sdk/lib/* $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/
-	@echo "Installing vendor SDK linker scripts into toolchain sysroot"
-	@sed -e 's/\r//' sdk/ld/eagle.app.v6.ld | sed -e s@../ld/@@ >$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/eagle.app.v6.ld
-	@sed -e 's/\r//' sdk/ld/eagle.rom.addr.v6.ld >$(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/eagle.rom.addr.v6.ld
 endif
 
 clean: clean-sdk
 	$(MAKE) -C crosstool-NG clean MAKELEVEL=0
-	-rm -f crosstool-NG/.built
 	-rm -rf crosstool-NG/.build/src
 	-rm -f crosstool-NG/local-patches/gcc/4.8.5/1000-*
 	-rm -rf $(TOOLCHAIN)
@@ -113,8 +120,6 @@ clean-sdk:
 	rm -rf $(VENDOR_SDK_DIR)
 	rm -f sdk
 	rm -f .sdk_patch_$(VENDOR_SDK)
-	rm -f user_rf_cal_sector_set.o empty_user_rf_pre_init.o
-	$(MAKE) -C esp-open-lwip -f Makefile.open clean
 
 clean-sysroot:
 	rm -rf $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/lib/*
@@ -124,12 +129,11 @@ clean-sysroot:
 esptool: toolchain
 	cp esptool/esptool.py $(TOOLCHAIN)/bin/
 
-toolchain $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/lib/libc.a: crosstool-NG/.built
+toolchain: $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc
 
-crosstool-NG/.built: crosstool-NG/ct-ng
+$(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc: crosstool-NG/ct-ng
 	cp -f 1000-mforce-l32.patch crosstool-NG/local-patches/gcc/4.8.5/
 	$(MAKE) -C crosstool-NG -f ../Makefile _toolchain
-	touch $@
 
 _toolchain:
 	./ct-ng xtensa-lx106-elf
@@ -183,10 +187,76 @@ $(VENDOR_SDK_DIR)/.dir: $(VENDOR_SDK_ZIP)
 	-mv License $(VENDOR_SDK_DIR)
 	touch $@
 
-$(VENDOR_SDK_DIR_2.1.0-18-g61248df)/.dir:
-	echo $(VENDOR_SDK_DIR_2.1.0-18-g61248df)
-	git clone https://github.com/espressif/ESP8266_NONOS_SDK $(VENDOR_SDK_DIR_2.1.0-18-g61248df)
-	(cd $(VENDOR_SDK_DIR_2.1.0-18-g61248df); git checkout 61248df5f6)
+$(VENDOR_SDK_DIR_3.0.5)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.5)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.5)
+	(cd $(VENDOR_SDK_DIR_3.0.5); git checkout v3.0.5)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.0.4-12-g692e021)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.4-12-g692e021)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.4-12-g692e021)
+	(cd $(VENDOR_SDK_DIR_3.0.4-12-g692e021); git checkout 692e021f55dc8fde4f1598bab49a9657288c8d4c)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.0.4)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.4)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.4)
+	(cd $(VENDOR_SDK_DIR_3.0.4); git checkout v3.0.4)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.0.3)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.3)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.3)
+	(cd $(VENDOR_SDK_DIR_3.0.3); git checkout v3.0.3)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.0.2)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.2)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.2)
+	(cd $(VENDOR_SDK_DIR_3.0.1); git checkout v3.0.2)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.0.1)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.1)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.1)
+	(cd $(VENDOR_SDK_DIR_3.0.1); git checkout v3.0.1)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.1.0-v3.0-37-gce29749)/.dir:
+	echo $(VENDOR_SDK_DIR_3.1.0-v3.0-37-gce29749)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.1.0-v3.0-37-gce29749)
+	(cd $(VENDOR_SDK_DIR_3.1.0-v3.0-37-gce29749); git checkout ce297499c1f7e3b1b98d971f57c6159d7c06eac3)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.1.0-dev-v3.0-21-g8c3f4c8)/.dir:
+	echo $(VENDOR_SDK_DIR_3.1.0-dev-v3.0-21-g8c3f4c8)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.1.0-dev-v3.0-21-g8c3f4c8)
+	(cd $(VENDOR_SDK_DIR_3.1.0-dev-v3.0-21-g8c3f4c8); git checkout 8c3f4c839f727d0da8b16a211f59cc1aff017173)
+	touch $@
+
+$(VENDOR_SDK_DIR_3.0.0)/.dir:
+	echo $(VENDOR_SDK_DIR_3.0.0)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_3.0.0)
+	(cd $(VENDOR_SDK_DIR_3.0.0); git checkout v3.0)
+	touch $@
+
+$(VENDOR_SDK_DIR_2.2.1)/.dir:
+	echo $(VENDOR_SDK_DIR_2.2.1)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_2.2.1)
+	(cd $(VENDOR_SDK_DIR_2.2.1); git checkout v2.2.1)
+	touch $@
+
+$(VENDOR_SDK_DIR_2.2.0)/.dir:
+	echo $(VENDOR_SDK_DIR_2.2.0)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_2.2.0)
+	(cd $(VENDOR_SDK_DIR_2.2.0); git checkout v2.2.0)
+	touch $@
+
+$(VENDOR_SDK_DIR_2.1.0-1-geff6873)/.dir:
+	echo $(VENDOR_SDK_DIR_2.1.0-1-geff6873)
+	git clone http://gitlab.hq.blebox.eu/third_party_tools/ESP8266_NONOS_SDK.git $(VENDOR_SDK_DIR_2.1.0-1-geff6873)
+	(cd $(VENDOR_SDK_DIR_2.1.0-1-geff6873); git checkout eff6873a5a15b98e607f36148f796431089fb670)
 	touch $@
 
 $(VENDOR_SDK_DIR_2.1.0)/.dir: $(VENDOR_SDK_ZIP_2.1.0)
@@ -207,20 +277,58 @@ $(VENDOR_SDK_DIR_1.5.4)/.dir: $(VENDOR_SDK_ZIP_1.5.4)
 
 sdk_patch: $(VENDOR_SDK_DIR)/.dir .sdk_patch_$(VENDOR_SDK)
 
-.sdk_patch_2.1.0-18-g61248df .sdk_patch_2.1.0: user_rf_cal_sector_set.o
-	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 020100" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
-	$(PATCH) -d $(VENDOR_SDK_DIR) -p1 < c_types-c99_sdk_2.patch
-	cd $(VENDOR_SDK_DIR)/lib; mkdir -p tmp; cd tmp; $(TOOLCHAIN)/bin/xtensa-lx106-elf-ar x ../libcrypto.a; cd ..; $(TOOLCHAIN)/bin/xtensa-lx106-elf-ar rs libwpa.a tmp/*.o
-	$(TOOLCHAIN)/bin/xtensa-lx106-elf-ar r $(VENDOR_SDK_DIR)/lib/libmain.a user_rf_cal_sector_set.o
+.sdk_patch_3.0.5:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030005" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
 	@touch $@
 
-.sdk_patch_2.0.0: ESP8266_NONOS_SDK_V2.0.0_patch_16_08_09.zip user_rf_cal_sector_set.o
+.sdk_patch_3.0.4-12-g692e021:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030004" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_3.0.4:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030004" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+	
+.sdk_patch_3.0.3:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030003" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_3.0.2:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030002" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_3.0.1:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030001" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_3.1.0-v3.0-37-gce29749:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030100" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_3.1.0-dev-v3.0-21-g8c3f4c8:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030100" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_3.0.0:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 030000" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_2.2.1:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 020201" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_2.2.0:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 020200" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_2.1.0-1-geff6873 .sdk_patch_2.1.0:
+	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 020100" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
+	@touch $@
+
+.sdk_patch_2.0.0: ESP8266_NONOS_SDK_V2.0.0_patch_16_08_09.zip
 	echo -e "#undef ESP_SDK_VERSION\n#define ESP_SDK_VERSION 020000" >>$(VENDOR_SDK_DIR)/include/esp_sdk_ver.h
 	$(UNZIP) ESP8266_NONOS_SDK_V2.0.0_patch_16_08_09.zip
 	mv libmain.a libnet80211.a libpp.a $(VENDOR_SDK_DIR_2.0.0)/lib/
-	$(PATCH) -d $(VENDOR_SDK_DIR) -p1 < c_types-c99_sdk_2.patch
-	cd $(VENDOR_SDK_DIR)/lib; mkdir -p tmp; cd tmp; $(TOOLCHAIN)/bin/xtensa-lx106-elf-ar x ../libcrypto.a; cd ..; $(TOOLCHAIN)/bin/xtensa-lx106-elf-ar rs libwpa.a tmp/*.o
-	$(TOOLCHAIN)/bin/xtensa-lx106-elf-ar r $(VENDOR_SDK_DIR)/lib/libmain.a user_rf_cal_sector_set.o
 	@touch $@
 
 .sdk_patch_1.5.4:
@@ -352,21 +460,6 @@ sdk_patch: $(VENDOR_SDK_DIR)/.dir .sdk_patch_$(VENDOR_SDK)
 
 empty_user_rf_pre_init.o: empty_user_rf_pre_init.c $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc $(VENDOR_SDK_DIR)/.dir
 	$(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc -O2 -I$(VENDOR_SDK_DIR)/include -c $<
-
-user_rf_cal_sector_set.o: user_rf_cal_sector_set.c $(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc $(VENDOR_SDK_DIR)/.dir
-	$(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc -O2 -I$(VENDOR_SDK_DIR)/include -c $<
-
-lwip: toolchain sdk_patch
-ifeq ($(STANDALONE),y)
-	$(MAKE) -C esp-open-lwip -f Makefile.open install \
-	    CC=$(TOOLCHAIN)/bin/xtensa-lx106-elf-gcc \
-	    AR=$(TOOLCHAIN)/bin/xtensa-lx106-elf-ar \
-	    PREFIX=$(TOOLCHAIN)
-	cp -a esp-open-lwip/include/arch esp-open-lwip/include/lwip esp-open-lwip/include/netif \
-	    esp-open-lwip/include/lwipopts.h \
-	    $(TOOLCHAIN)/xtensa-lx106-elf/sysroot/usr/include/
-endif
-
 
 ESP8266_NONOS_SDK-2.1.0.zip:
 	wget --content-disposition "https://github.com/espressif/ESP8266_NONOS_SDK/archive/v2.1.0.zip"
